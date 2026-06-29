@@ -33,14 +33,16 @@ const IMG_TVUNIT_WOOD = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAAAAAAD/4QDz
 // Models are real CC0/CC-BY glTF assets loaded live from the Khronos sample-assets CDN.
 // NOTE: requires `npm install three --legacy-peer-deps` in your project (see setup notes).
 
-function ThreeDViewer({ modelUrl, height = "100%", autoRotate = true, scale = 1, cameraZ = 3.2, modelYOffset = 0 }) {
+function ThreeDViewer({ modelUrl, height = "100%", autoRotate = true, scale = 1, cameraZ = 3.2, modelYOffset = 0, transparent = true }) {
   const mountRef = useRef(null);
+  const wrapperRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let renderer, scene, camera, controls, frameId;
     let mounted = true;
+    let isVisible = true;
     const el = mountRef.current;
     if (!el) return;
 
@@ -50,21 +52,22 @@ function ThreeDViewer({ modelUrl, height = "100%", autoRotate = true, scale = 1,
     camera = new THREE.PerspectiveCamera(35, w / h, 0.1, 100);
     camera.position.set(0, 1.1, cameraZ);
 
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: transparent, powerPreference: "high-performance" });
     renderer.setSize(w, h);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Cap pixel ratio harder — this is the single biggest perf lever for WebGL on retina/mobile
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     el.innerHTML = "";
     el.appendChild(renderer.domElement);
 
-    // Studio lighting rig
+    // Studio lighting rig (one shadow-casting light only — second light is non-shadow for cost)
     scene.add(new THREE.HemisphereLight(0xfff3e0, 0x1c1410, 1.1));
     const key = new THREE.DirectionalLight(0xfff0dd, 2.4);
     key.position.set(4, 6, 4);
     key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.mapSize.set(512, 512); // lighter shadow map — was 1024, visually near-identical at this scale
     scene.add(key);
     const rim = new THREE.DirectionalLight(0xb8743c, 1.2);
     rim.position.set(-5, 3, -4);
@@ -74,7 +77,7 @@ function ThreeDViewer({ modelUrl, height = "100%", autoRotate = true, scale = 1,
     scene.add(fill);
 
     // Soft ground shadow catcher
-    const ground = new THREE.Mesh(new THREE.CircleGeometry(6, 64), new THREE.ShadowMaterial({ opacity: 0.22 }));
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(6, 48), new THREE.ShadowMaterial({ opacity: 0.22 }));
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.001;
     ground.receiveShadow = true;
@@ -117,36 +120,58 @@ function ThreeDViewer({ modelUrl, height = "100%", autoRotate = true, scale = 1,
       (err) => { console.error("glTF load error", err); if (mounted) { setFailed(true); setLoading(false); } }
     );
 
+    // Only render while the canvas is actually on-screen — this is what fixes scroll jank,
+    // since a hidden/offscreen WebGL context was previously still rendering every frame.
+    const io = new IntersectionObserver(
+      ([entry]) => { isVisible = entry.isIntersecting; },
+      { threshold: 0.01 }
+    );
+    if (wrapperRef.current) io.observe(wrapperRef.current);
+
     function animate() {
       if (!mounted) return;
       frameId = requestAnimationFrame(animate);
+      if (!isVisible) return; // skip render + controls update entirely when offscreen
       controls.update();
       renderer.render(scene, camera);
     }
     animate();
 
+    let resizeTimeout;
     const onResize = () => {
-      if (!mountRef.current) return;
-      const nw = mountRef.current.clientWidth, nh = mountRef.current.clientHeight;
-      camera.aspect = nw / nh;
-      camera.updateProjectionMatrix();
-      renderer.setSize(nw, nh);
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        if (!mountRef.current) return;
+        const nw = mountRef.current.clientWidth, nh = mountRef.current.clientHeight;
+        camera.aspect = nw / nh;
+        camera.updateProjectionMatrix();
+        renderer.setSize(nw, nh);
+      }, 100);
     };
     window.addEventListener("resize", onResize);
 
     return () => {
       mounted = false;
+      io.disconnect();
+      clearTimeout(resizeTimeout);
       if (frameId) cancelAnimationFrame(frameId);
       window.removeEventListener("resize", onResize);
       controls.dispose();
       renderer.dispose();
+      scene.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach((m) => { Object.values(m).forEach((v) => v?.isTexture && v.dispose()); m.dispose(); });
+        }
+      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelUrl]);
 
   return (
-    <div className="relative w-full" style={{ height }}>
-      <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
+    <div ref={wrapperRef} className="relative w-full" style={{ height, contain: "layout paint size" }}>
+      <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" style={{ willChange: "transform" }} />
       {loading && !failed && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3">
@@ -173,6 +198,180 @@ function ThreeDViewer({ modelUrl, height = "100%", autoRotate = true, scale = 1,
 const MODEL_VELVET_SOFA = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/GlamVelvetSofa/glTF-Binary/GlamVelvetSofa.glb";
 const MODEL_SHEEN_CHAIR = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/SheenChair/glTF-Binary/SheenChair.glb";
 const MODEL_DAMASK_CHAIR = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/ChairDamaskPurplegold/glTF-Binary/ChairDamaskPurplegold.glb";
+const MODEL_LEATHER_SOFA = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/SheenWoodLeatherSofa/glTF-Binary/SheenWoodLeatherSofa.glb";
+const MODEL_BARN_LAMP = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/AnisotropyBarnLamp/glTF-Binary/AnisotropyBarnLamp.glb";
+
+// ─── PERSISTENT MULTI-MODEL 3D VIEWER ─────────────────────────────────────────
+// Keeps ONE WebGL renderer + ONE GLTFLoader alive for the whole slideshow.
+// Each model is loaded once and cached; switching the active slide just toggles
+// visibility inside the same scene instead of tearing down and rebuilding the
+// whole WebGL context — this is what removes the stutter on every slide change.
+function ThreeDSlideshowViewer({ models, activeIndex, height = "100%", autoRotate = true }) {
+  const mountRef = useRef(null);
+  const wrapperRef = useRef(null);
+  const [loadedSet, setLoadedSet] = useState(() => new Set());
+  const sceneObjsRef = useRef({}); // url -> THREE.Group
+
+  useEffect(() => {
+    let renderer, scene, camera, controls, frameId;
+    let mounted = true;
+    let isVisible = true;
+    const el = mountRef.current;
+    if (!el) return;
+
+    const w = el.clientWidth, h = el.clientHeight;
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(35, w / h, 0.1, 100);
+    camera.position.set(0, 1.1, 3.4);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    el.innerHTML = "";
+    el.appendChild(renderer.domElement);
+
+    scene.add(new THREE.HemisphereLight(0xfff3e0, 0x1c1410, 1.1));
+    const key = new THREE.DirectionalLight(0xfff0dd, 2.4);
+    key.position.set(4, 6, 4);
+    key.castShadow = true;
+    key.shadow.mapSize.set(512, 512);
+    scene.add(key);
+    const rim = new THREE.DirectionalLight(0xb8743c, 1.2);
+    rim.position.set(-5, 3, -4);
+    scene.add(rim);
+    scene.add(new THREE.PointLight(0xffffff, 0.6).translateX(0).translateY(2).translateZ(5));
+
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(6, 48), new THREE.ShadowMaterial({ opacity: 0.22 }));
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.001;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.enableZoom = false;
+    controls.enablePan = false;
+    controls.minPolarAngle = Math.PI / 3.2;
+    controls.maxPolarAngle = Math.PI / 1.9;
+    controls.autoRotate = autoRotate;
+    controls.autoRotateSpeed = 1.1;
+    controls.target.set(0, 0.6, 0);
+
+    const loader = new GLTFLoader();
+    const groups = {};
+
+    models.forEach((m, idx) => {
+      const holder = new THREE.Group();
+      holder.visible = idx === 0;
+      scene.add(holder);
+      groups[m.url] = holder;
+
+      loader.load(
+        m.url,
+        (gltf) => {
+          if (!mounted) return;
+          const model = gltf.scene;
+          model.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+
+          const box = new THREE.Box3().setFromObject(model);
+          const size = box.getSize(new THREE.Vector3());
+          const center = box.getCenter(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const fitScale = 1.8 / maxDim;
+          model.scale.setScalar(fitScale);
+          model.position.x -= center.x * fitScale;
+          model.position.y -= box.min.y * fitScale;
+          model.position.z -= center.z * fitScale;
+
+          holder.add(model);
+          setLoadedSet((prev) => new Set(prev).add(m.url));
+        },
+        undefined,
+        (err) => console.error("glTF load error", m.url, err)
+      );
+    });
+
+    sceneObjsRef.current = groups;
+
+    const io = new IntersectionObserver(([entry]) => { isVisible = entry.isIntersecting; }, { threshold: 0.01 });
+    if (wrapperRef.current) io.observe(wrapperRef.current);
+
+    function animate() {
+      if (!mounted) return;
+      frameId = requestAnimationFrame(animate);
+      if (!isVisible) return;
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    let resizeTimeout;
+    const onResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        if (!mountRef.current) return;
+        const nw = mountRef.current.clientWidth, nh = mountRef.current.clientHeight;
+        camera.aspect = nw / nh;
+        camera.updateProjectionMatrix();
+        renderer.setSize(nw, nh);
+      }, 100);
+    };
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      mounted = false;
+      io.disconnect();
+      clearTimeout(resizeTimeout);
+      if (frameId) cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", onResize);
+      controls.dispose();
+      renderer.dispose();
+      scene.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach((m) => { Object.values(m).forEach((v) => v?.isTexture && v.dispose()); m.dispose(); });
+        }
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [models]);
+
+  // Toggle visibility + smoothly retarget camera when the active slide changes
+  // (no reload, no context teardown — this is the fix for slideshow stutter)
+  useEffect(() => {
+    const groups = sceneObjsRef.current;
+    Object.entries(groups).forEach(([url, holder]) => {
+      holder.visible = url === models[activeIndex]?.url;
+    });
+  }, [activeIndex, models]);
+
+  const allLoaded = models.every((m) => loadedSet.has(m.url));
+
+  return (
+    <div ref={wrapperRef} className="relative w-full" style={{ height, contain: "layout paint size" }}>
+      <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" style={{ willChange: "transform" }} />
+      {!loadedSet.has(models[activeIndex]?.url) && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-[#B8743C]/30 border-t-[#B8743C] rounded-full animate-spin" />
+            <span className="text-[#D9C9A8] text-xs uppercase tracking-widest">Loading 3D model…</span>
+          </div>
+        </div>
+      )}
+      {loadedSet.has(models[activeIndex]?.url) && (
+        <div className="absolute bottom-3 inset-x-0 flex justify-center pointer-events-none">
+          <span className="text-[10px] uppercase tracking-widest text-[#D9C9A8]/50 bg-[#1C1410]/40 backdrop-blur-sm px-3 py-1 rounded-full">Drag to rotate</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 
 // ─── BRAND TOKENS ─────────────────────────────────────────────────────────────
@@ -382,65 +581,111 @@ function Navbar({ onCartOpen, onWishlistOpen, cartCount, wishlistCount, onSearch
   );
 }
 
-// ─── HERO — ROOM ASSEMBLY SEQUENCE ────────────────────────────────────────────
+// ─── HERO — CINEMATIC FLOATING 3D SLIDESHOW ───────────────────────────────────
+const HERO_MODELS = [
+  { url: MODEL_VELVET_SOFA, label: "Velvet Sofa" },
+  { url: MODEL_LEATHER_SOFA, label: "Leather Sofa" },
+  { url: MODEL_SHEEN_CHAIR, label: "Sheen Chair" },
+  { url: MODEL_DAMASK_CHAIR, label: "Damask Chair" },
+  { url: MODEL_BARN_LAMP, label: "Barn Lamp" },
+];
+
 function Hero() {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
+  const [modelIndex, setModelIndex] = useState(0);
 
   const sceneOpacity = useTransform(scrollYProgress, [0, 0.15, 0.6, 0.85], [0, 1, 1, 0]);
-  const sceneScale = useTransform(scrollYProgress, [0, 0.5], [0.9, 1.08]);
   const textOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
   const textY = useTransform(scrollYProgress, [0, 0.5], ["0%", "-15%"]);
 
-  return (
-    <section ref={ref} id="home" className="relative h-[150vh] bg-[#1C1410]">
-      <div className="sticky top-0 h-screen overflow-hidden flex items-center justify-center">
-        {/* Ambient texture */}
-        <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "repeating-linear-gradient(60deg, #D9C9A8 0, #D9C9A8 1px, transparent 0, transparent 80px)" }} />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-[#1C1410]" />
+  // Cinematic slideshow — cycles to the next 3D piece every 7s.
+  // Models are preloaded once in ThreeDSlideshowViewer, so switching slides
+  // is just a visibility toggle inside the same WebGL context — no reload, no stutter.
+  useEffect(() => {
+    const id = setInterval(() => setModelIndex((i) => (i + 1) % HERO_MODELS.length), 7000);
+    return () => clearInterval(id);
+  }, []);
 
-        {/* Real 3D centerpiece — genuine WebGL, drag to rotate */}
-        <motion.div style={{ opacity: sceneOpacity, scale: sceneScale }} className="absolute inset-0 flex items-center justify-center">
+  return (
+    <section ref={ref} id="home" className="relative h-[150vh]">
+      <div className="sticky top-0 h-screen overflow-hidden flex items-center justify-center bg-gradient-to-br from-[#2a2018] via-[#1C1410] to-[#241a14]">
+        {/* Airy floating-gradient backdrop, à la peachweb — soft color blooms instead of a flat panel.
+            Reduced from 3 to 2 blobs and dropped the constant x/y tween in favor of a single
+            slower transform — large blur-3xl elements are expensive to repaint every frame,
+            and this was a meaningful chunk of the scroll jank on mid-range phones. */}
+        <div className="absolute inset-0 overflow-hidden" style={{ contain: "strict" }}>
+          <motion.div
+            animate={{ x: [0, 30, 0], y: [0, -20, 0] }} transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute -top-32 -left-32 w-[50vw] h-[50vw] max-w-lg max-h-lg rounded-full blur-3xl opacity-25"
+            style={{ background: "radial-gradient(circle, #B8743C 0%, transparent 70%)", willChange: "transform" }}
+          />
+          <motion.div
+            animate={{ x: [0, -30, 0], y: [0, 25, 0] }} transition={{ duration: 28, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute top-1/3 -right-40 w-[45vw] h-[45vw] max-w-lg max-h-lg rounded-full blur-3xl opacity-20"
+            style={{ background: "radial-gradient(circle, #6B7A5E 0%, transparent 70%)", willChange: "transform" }}
+          />
+        </div>
+        {/* Fine grain texture for depth, kept very subtle so it never competes with text */}
+        <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: "repeating-linear-gradient(60deg, #D9C9A8 0, #D9C9A8 1px, transparent 0, transparent 80px)" }} />
+
+        {/* Real 3D centerpiece — genuine WebGL, drag to rotate, cycles between 5 real pieces.
+            Single persistent renderer — all models preloaded once, slide swap = visibility toggle. */}
+        <motion.div style={{ opacity: sceneOpacity }} className="absolute inset-0 flex items-center justify-center pointer-events-none md:pointer-events-auto">
           <div className="w-full h-full max-w-4xl mx-auto pt-24 pb-16">
-            <ThreeDViewer modelUrl={MODEL_VELVET_SOFA} height="100%" cameraZ={3.6} />
+            <ThreeDSlideshowViewer models={HERO_MODELS} activeIndex={modelIndex} height="100%" />
           </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-[#1C1410] via-transparent to-[#1C1410]/50 pointer-events-none" />
         </motion.div>
 
-        {/* Hero text */}
+        {/* Slideshow indicator dots */}
+        <div className="absolute right-6 md:right-10 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-3">
+          {HERO_MODELS.map((m, i) => (
+            <button key={m.url} onClick={() => setModelIndex(i)}
+              className="group relative flex items-center justify-end gap-2"
+              aria-label={`Show ${m.label}`}
+            >
+              <span className={`text-[10px] uppercase tracking-widest text-[#D9C9A8] opacity-0 group-hover:opacity-70 transition-opacity whitespace-nowrap ${i === modelIndex ? "opacity-70" : ""}`}>{m.label}</span>
+              <span className={`block rounded-full transition-all ${i === modelIndex ? "w-2.5 h-2.5 bg-[#B8743C]" : "w-1.5 h-1.5 bg-[#D9C9A8]/40"}`} />
+            </button>
+          ))}
+        </div>
+
+        {/* Hero text — sits on its own solid-readable layer above the 3D/gradient backdrop */}
         <motion.div style={{ opacity: textOpacity, y: textY }} className="relative z-10 text-center max-w-4xl mx-auto px-6 pointer-events-none">
-          <motion.span initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.7, duration: 0.7 }}
-            className="inline-block text-[#B8743C] text-xs font-bold uppercase tracking-[0.4em] mb-6 border border-[#B8743C]/40 px-4 py-1.5 rounded-full pointer-events-auto"
-          >A Luxury Furniture Showroom</motion.span>
+          <div className="inline-block backdrop-blur-[2px]">
+            <motion.span initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.7, duration: 0.7 }}
+              className="inline-block text-[#B8743C] text-xs font-bold uppercase tracking-[0.4em] mb-6 border border-[#B8743C]/40 bg-[#1C1410]/40 px-4 py-1.5 rounded-full pointer-events-auto"
+            >A Luxury Furniture Showroom</motion.span>
+          </div>
 
           <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.9, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="font-serif text-5xl md:text-7xl font-bold leading-tight mb-6 text-[#F5EFE6]"
+            className="font-serif text-5xl md:text-7xl font-bold leading-tight mb-6 text-[#F5EFE6] [text-shadow:0_2px_24px_rgba(0,0,0,0.45)]"
           >
             Furniture That Feels<br/>
             <span className="text-[#B8743C] italic">Like Home</span>
           </motion.h1>
 
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.2, duration: 0.8 }}
-            className="text-lg md:text-xl text-[#D9C9A8] mb-2 max-w-2xl mx-auto leading-relaxed"
+            className="text-lg md:text-xl text-[#F5EFE6]/90 mb-2 max-w-2xl mx-auto leading-relaxed [text-shadow:0_2px_16px_rgba(0,0,0,0.5)]"
           >
             Hand-finished pieces, built to order, delivered across Nigeria.
           </motion.p>
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.35, duration: 0.8 }}
-            className="text-sm text-[#B8743C]/80 mb-10 italic"
-          >Drag the sofa above to see it from every angle.</motion.p>
+            className="text-sm text-[#D9C9A8] mb-10 italic [text-shadow:0_1px_8px_rgba(0,0,0,0.6)]"
+          >Drag the piece above to see it from every angle.</motion.p>
 
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2.5, duration: 0.6 }}
             className="flex flex-col sm:flex-row justify-center gap-4 pointer-events-auto"
           >
-            <a href="#products" className="bg-[#B8743C] hover:bg-[#F5EFE6] hover:text-[#1C1410] text-[#1C1410] px-10 py-4 rounded-full font-semibold transition-all duration-300 hover:-translate-y-1 shadow-lg shadow-[#B8743C]/20">Shop the Collection</a>
-            <a href="#showroom" className="border-2 border-[#D9C9A8]/50 text-[#F5EFE6] hover:bg-[#F5EFE6] hover:text-[#1C1410] px-10 py-4 rounded-full font-semibold transition-all duration-300 hover:-translate-y-1">Enter Showroom</a>
+            <a href="#products" className="bg-[#B8743C] hover:bg-[#F5EFE6] hover:text-[#1C1410] text-[#1C1410] px-10 py-4 rounded-full font-semibold transition-all duration-300 hover:-translate-y-1 shadow-lg shadow-[#B8743C]/30">Shop the Collection</a>
+            <a href="#showroom" className="border-2 border-[#F5EFE6]/60 bg-[#1C1410]/30 text-[#F5EFE6] hover:bg-[#F5EFE6] hover:text-[#1C1410] px-10 py-4 rounded-full font-semibold transition-all duration-300 hover:-translate-y-1">Enter Showroom</a>
           </motion.div>
         </motion.div>
 
         {/* Scroll cue */}
         <div className="absolute bottom-8 inset-x-0 z-10 flex justify-center pointer-events-none">
           <motion.span animate={{ y: [0, 10, 0] }} transition={{ repeat: Infinity, duration: 1.8, delay: 2.8 }}
-            className="text-[#D9C9A8]/70 flex flex-col items-center gap-1 text-xs tracking-widest"
+            className="text-[#D9C9A8]/70 flex flex-col items-center gap-1 text-xs tracking-widest [text-shadow:0_1px_8px_rgba(0,0,0,0.6)]"
           >
             <span>SCROLL TO ENTER</span>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
@@ -573,8 +818,10 @@ function Inspect3DPanel() {
   const inView = useInView(panelRef, { once: true, margin: "-100px" });
 
   const models = [
-    { url: MODEL_SHEEN_CHAIR, name: "Sheen-Finish Accent Chair", note: "Real-time WebGL · drag to inspect" },
-    { url: MODEL_DAMASK_CHAIR, name: "Damask Purple & Gold Chair", note: "Real-time WebGL · drag to inspect" },
+    { url: MODEL_SHEEN_CHAIR, name: "Sheen Chair", note: "Real-time WebGL · drag to inspect" },
+    { url: MODEL_DAMASK_CHAIR, name: "Damask Chair", note: "Real-time WebGL · drag to inspect" },
+    { url: MODEL_LEATHER_SOFA, name: "Leather Sofa", note: "Real-time WebGL · drag to inspect" },
+    { url: MODEL_BARN_LAMP, name: "Barn Lamp", note: "Real-time WebGL · drag to inspect" },
   ];
 
   return (
@@ -585,7 +832,7 @@ function Inspect3DPanel() {
           <h3 className="font-serif text-3xl md:text-4xl font-bold text-[#F5EFE6]">Inspect a Piece in 3D</h3>
           <p className="text-[#D9C9A8] mt-2 max-w-lg text-sm">A real, rotatable 3D model — not a photo. Drag to spin it around and see every angle, just like you would in our showroom.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {models.map((m, i) => (
             <button key={m.name} onClick={() => setActive(i)}
               className={`px-4 py-2 rounded-full text-xs font-semibold border transition-colors ${active === i ? "bg-[#B8743C] text-[#1C1410] border-[#B8743C]" : "border-[#D9C9A8]/30 text-[#D9C9A8] hover:border-[#B8743C]"}`}
@@ -597,7 +844,9 @@ function Inspect3DPanel() {
       <motion.div variants={fadeUp(0.15)} initial="hidden" animate={inView ? "visible" : "hidden"}
         className="rounded-3xl overflow-hidden border border-[#D9C9A8]/15 bg-gradient-to-b from-[#241a14] to-[#1C1410]"
       >
-        <ThreeDViewer key={models[active].url} modelUrl={models[active].url} height="60vh" cameraZ={2.6} />
+        {/* Same persistent-viewer pattern as the hero: all 4 models preload once,
+            switching tabs is a visibility toggle, not a reload. */}
+        <ThreeDSlideshowViewer models={models} activeIndex={active} height="60vh" />
       </motion.div>
       <p className="text-center text-[#D9C9A8]/40 text-xs mt-3">{models[active].note}</p>
     </div>
@@ -637,7 +886,7 @@ function ProductCard({ product, onQuickView }) {
       className="group rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-shadow duration-300 flex flex-col bg-white border border-[#D9C9A8]/40"
     >
       <div className="relative h-64 overflow-hidden cursor-pointer" onClick={() => onQuickView(product)}>
-        <motion.img src={product.image} alt={product.name} className="w-full h-full object-cover" whileHover={{ scale: 1.08 }} transition={{ duration: 0.5 }} />
+        <motion.img src={product.image} alt={product.name} loading="lazy" className="w-full h-full object-cover" whileHover={{ scale: 1.08 }} transition={{ duration: 0.5 }} />
         {product.badge && (
           <span className={`absolute top-3 left-3 text-[#F5EFE6] text-[10px] font-bold px-2.5 py-1 rounded-full ${product.badge === "SALE" ? "bg-[#B8743C]" : "bg-[#1C1410]"}`}>{product.badge}</span>
         )}
@@ -754,7 +1003,7 @@ function About() {
       <div className="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-16">
         <motion.div variants={fadeUp()} initial="hidden" animate={inView ? "visible" : "hidden"} className="lg:w-1/2 relative">
           <div className="absolute -top-5 -left-5 w-full h-full border-2 border-[#B8743C]/40 rounded-2xl" />
-          <img src={IMG_TUFTEDBED} alt="Craftsmanship" className="relative z-10 rounded-2xl shadow-2xl w-full" />
+          <img src={IMG_TUFTEDBED} alt="Craftsmanship" loading="lazy" className="relative z-10 rounded-2xl shadow-2xl w-full" />
         </motion.div>
         <motion.div variants={fadeUp(0.2)} initial="hidden" animate={inView ? "visible" : "hidden"} className="lg:w-1/2">
           <p className="text-[#B8743C] text-sm uppercase tracking-[0.3em] font-bold mb-4">Our Story</p>
@@ -1338,6 +1587,11 @@ export default function App() {
           ::-webkit-scrollbar { width:6px; }
           ::-webkit-scrollbar-track { background:transparent; }
           ::-webkit-scrollbar-thumb { background:#B8743C; border-radius:3px; }
+          html, body { overflow-x: hidden; }
+          img { content-visibility: auto; }
+          @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+          }
         `}</style>
 
         <AnimatePresence>{!loaded && <Loader />}</AnimatePresence>
