@@ -235,9 +235,8 @@ function Navbar({ onCartOpen, onWishlistOpen, cartCount, wishlistCount, onSearch
 
 // ─── HERO — CINEMATIC PHOTO SLIDESHOW ────────────────────────────────────────
 // High-resolution luxury interior photos from Unsplash (free commercial use).
-// All chosen specifically for warm/bright tones so dark overlay + white text
-// always contrasts perfectly — no dark-furniture-on-dark-background issue.
-// URL format: images.unsplash.com/photo-{ID}?w=1920&q=85&auto=format&fit=crop
+// All chosen for warm/bright tones — dark gradient overlay + white text
+// will always contrast clearly regardless of which slide is active.
 const HERO_SLIDES = [
   {
     img: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1920&q=85&auto=format&fit=crop",
@@ -250,9 +249,9 @@ const HERO_SLIDES = [
     credit: "Collov Home Design",
   },
   {
-    img: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb3?w=1920&q=85&auto=format&fit=crop",
+    img: "https://images.unsplash.com/photo-1617806118233-18e1de247200?w=1920&q=85&auto=format&fit=crop",
     label: "Dining Room",
-    credit: "Frames For Your Heart",
+    credit: "Toa Heftiba",
   },
   {
     img: "https://images.unsplash.com/photo-1567016432779-094069958ea5?w=1920&q=85&auto=format&fit=crop",
@@ -265,9 +264,9 @@ const HERO_SLIDES = [
     credit: "Spacejoy",
   },
   {
-    img: "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=1920&q=85&auto=format&fit=crop",
+    img: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=1920&q=85&auto=format&fit=crop",
     label: "Modern Interior",
-    credit: "Patrick Perkins",
+    credit: "Spacejoy",
   },
 ];
 
@@ -1322,4 +1321,4 @@ export default function App() {
       </div>
     </CartCtx.Provider>
   );
-}
+}``
