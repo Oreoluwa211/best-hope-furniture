@@ -167,8 +167,8 @@ function Navbar({ onCartOpen, onWishlistOpen, cartCount, wishlistCount, onSearch
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", fn);
+    const fn = () => setScrolled(window.scrollY > 60);
+    window.addEventListener("scroll", fn, { passive: true });
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
@@ -183,8 +183,10 @@ function Navbar({ onCartOpen, onWishlistOpen, cartCount, wishlistCount, onSearch
   return (
     <motion.nav
       initial={{ y: -90 }} animate={{ y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 1.4 }}
-      className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-300 ${
-        scrolled ? "bg-[#1C1410]/92 backdrop-blur-lg shadow-xl" : "bg-transparent"
+      className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-400 ${
+        scrolled
+          ? "bg-[#1C1410] shadow-2xl border-b border-[#B8743C]/20"
+          : "bg-gradient-to-b from-black/60 to-transparent backdrop-blur-[2px]"
       }`}
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -194,19 +196,19 @@ function Navbar({ onCartOpen, onWishlistOpen, cartCount, wishlistCount, onSearch
 
         <div className="hidden lg:flex items-center gap-9">
           {links.map((l) => (
-            <a key={l.href} href={l.href} className="text-sm font-medium text-[#D9C9A8] hover:text-[#B8743C] transition-colors">{l.label}</a>
+            <a key={l.href} href={l.href} className="text-sm font-medium text-[#F5EFE6]/85 hover:text-[#B8743C] transition-colors">{l.label}</a>
           ))}
         </div>
 
         <div className="flex items-center gap-5">
-          <button onClick={onSearch} className="text-[#D9C9A8] hover:text-[#B8743C] transition-colors">
+          <button onClick={onSearch} className="text-[#F5EFE6]/85 hover:text-[#B8743C] transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           </button>
-          <button onClick={onWishlistOpen} className="relative text-[#D9C9A8] hover:text-[#B8743C] transition-colors">
+          <button onClick={onWishlistOpen} className="relative text-[#F5EFE6]/85 hover:text-[#B8743C] transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
             {wishlistCount > 0 && <span className="absolute -top-1.5 -right-1.5 bg-[#B8743C] text-[#1C1410] text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{wishlistCount}</span>}
           </button>
-          <button onClick={onCartOpen} className="relative text-[#D9C9A8] hover:text-[#B8743C] transition-colors">
+          <button onClick={onCartOpen} className="relative text-[#F5EFE6]/85 hover:text-[#B8743C] transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
             {cartCount > 0 && <span className="absolute -top-1.5 -right-1.5 bg-[#B8743C] text-[#1C1410] text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{cartCount}</span>}
           </button>
@@ -219,11 +221,11 @@ function Navbar({ onCartOpen, onWishlistOpen, cartCount, wishlistCount, onSearch
       <AnimatePresence>
         {mobileOpen && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            className="lg:hidden overflow-hidden bg-[#1C1410] border-t border-white/10"
+            className="lg:hidden overflow-hidden bg-[#1C1410] border-t border-[#B8743C]/20"
           >
             <div className="flex flex-col p-4 gap-4">
               {links.map((l) => (
-                <a key={l.href} href={l.href} onClick={() => setMobileOpen(false)} className="font-medium text-[#D9C9A8] hover:text-[#B8743C] transition-colors">{l.label}</a>
+                <a key={l.href} href={l.href} onClick={() => setMobileOpen(false)} className="font-medium text-[#D9C9A8] hover:text-[#B8743C] transition-colors py-1">{l.label}</a>
               ))}
             </div>
           </motion.div>
@@ -445,18 +447,26 @@ function StatsBar() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-100px" });
   const stats = [
-    { label: "Pieces Delivered", value: "3,200+" },
-    { label: "Showroom Designs", value: "60+" },
-    { label: "Years Crafting", value: "14+" },
-    { label: "States Served", value: "All 36" },
+    { label: "Pieces Delivered", value: "3,200+", icon: "🛋️" },
+    { label: "Showroom Designs", value: "60+", icon: "🎨" },
+    { label: "Years Crafting", value: "14+", icon: "🪵" },
+    { label: "States Served", value: "All 36", icon: "🚚" },
   ];
   return (
-    <section ref={ref} className="py-12 bg-[#F5EFE6] border-y border-[#D9C9A8]">
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-6">
+    <section ref={ref} className="relative py-16 overflow-hidden" style={{ background: "linear-gradient(90deg, #1C1410 0%, #2a1f14 50%, #1C1410 100%)" }}>
+      {/* Horizontal gold line accent */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#B8743C] to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#B8743C]/40 to-transparent" />
+
+      <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-0">
         {stats.map((s, i) => (
-          <motion.div key={s.label} variants={fadeUp(i * 0.1)} initial="hidden" animate={inView ? "visible" : "hidden"} className="text-center">
+          <motion.div key={s.label}
+            variants={fadeUp(i * 0.1)} initial="hidden" animate={inView ? "visible" : "hidden"}
+            className={`text-center py-6 px-4 ${i < 3 ? "border-r border-[#D9C9A8]/10" : ""}`}
+          >
+            <div className="text-2xl mb-2">{s.icon}</div>
             <div className="font-serif text-3xl md:text-4xl font-bold text-[#B8743C] mb-1">{s.value}</div>
-            <div className="text-[#1C1410]/60 text-sm uppercase tracking-wider">{s.label}</div>
+            <div className="text-[#D9C9A8]/50 text-xs uppercase tracking-[0.2em]">{s.label}</div>
           </motion.div>
         ))}
       </div>
@@ -634,8 +644,9 @@ function Products({ onQuickView }) {
   const filtered = filter === "all" ? PRODUCTS : PRODUCTS.filter((p) => p.category === filter);
 
   return (
-    <section id="products" ref={ref} className="py-24 bg-white">
-      <div className="max-w-7xl mx-auto px-6">
+    <section id="products" ref={ref} className="py-24 relative overflow-hidden" style={{ background: "linear-gradient(180deg, #F5EFE6 0%, #ede5d8 100%)" }}>
+      <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage: "repeating-linear-gradient(135deg, #1C1410 0, #1C1410 1px, transparent 0, transparent 40px)" }} />
+      <div className="max-w-7xl mx-auto px-6 relative">
         <motion.div variants={fadeUp()} initial="hidden" animate={inView ? "visible" : "hidden"} className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
           <div>
             <p className="text-[#B8743C] text-sm uppercase tracking-[0.3em] font-bold mb-2">Handcrafted Pieces</p>
@@ -644,7 +655,7 @@ function Products({ onQuickView }) {
           <div className="flex flex-wrap gap-2">
             {CATEGORIES.map((c) => (
               <motion.button key={c.key} whileTap={{ scale: 0.95 }} onClick={() => setFilter(c.key)}
-                className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${filter === c.key ? "bg-[#1C1410] text-white border-[#1C1410]" : "border-[#1C1410]/25 text-[#1C1410] hover:border-[#1C1410] hover:bg-[#1C1410]/5"}`}
+                className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${filter === c.key ? "bg-[#1C1410] text-[#F5EFE6] border-[#1C1410]" : "border-[#1C1410]/25 text-[#1C1410] hover:border-[#B8743C] hover:text-[#B8743C] bg-white/60"}`}
               >{c.label}</motion.button>
             ))}
           </div>
@@ -665,26 +676,71 @@ function WhyUs() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
   const items = [
-    { icon: "🪵", title: "Solid Craftsmanship", desc: "Every frame built from solid wood and genuine upholstery by master local artisans." },
-    { icon: "🚚", title: "Nationwide Delivery", desc: "We deliver to all 36 states, with white-glove setup in Lagos and Abuja." },
-    { icon: "📐", title: "Made to Measure", desc: "Wardrobes, beds, and dining sets built to fit your exact room dimensions." },
-    { icon: "💬", title: "WhatsApp Support", desc: "Order, ask questions, and get updates directly through WhatsApp — no apps to install." },
+    {
+      num: "01", icon: "🪵", title: "Solid Craftsmanship",
+      desc: "Every frame built from solid wood and genuine upholstery by master local artisans — built to outlast trends.",
+      gradient: "from-[#B8743C] to-[#8B4F1E]", light: "#D9C9A8",
+    },
+    {
+      num: "02", icon: "🚚", title: "Nationwide Delivery",
+      desc: "White-glove delivery across all 36 states. Based in Ibadan, Oyo State — same-day within the city.",
+      gradient: "from-[#6B7A5E] to-[#3d4a38]", light: "#c8d5c0",
+    },
+    {
+      num: "03", icon: "📐", title: "Made to Measure",
+      desc: "Wardrobes, beds, and dining sets built exactly to your room dimensions. No off-the-shelf compromises.",
+      gradient: "from-[#2a2018] to-[#1C1410]", light: "#D9C9A8",
+    },
+    {
+      num: "04", icon: "💬", title: "WhatsApp Support",
+      desc: "Order, track, and ask questions directly through WhatsApp. Real humans, real-time responses.",
+      gradient: "from-[#B8743C] via-[#9a5e28] to-[#6B7A5E]", light: "#F5EFE6",
+    },
   ];
+
   return (
-    <section ref={ref} className="py-24 bg-[#F5EFE6]">
-      <div className="max-w-7xl mx-auto px-6">
-        <motion.div variants={fadeUp()} initial="hidden" animate={inView ? "visible" : "hidden"} className="text-center mb-14">
-          <h2 className="font-serif text-4xl font-bold text-[#1C1410]">Why Choose BEST HOPE</h2>
-          <div className="w-20 h-0.5 bg-[#B8743C] mx-auto mt-4" />
+    <section ref={ref} className="py-24 bg-[#1C1410] relative overflow-hidden">
+      {/* Decorative background grid */}
+      <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "linear-gradient(#D9C9A8 1px, transparent 1px), linear-gradient(90deg, #D9C9A8 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
+      {/* Corner accent */}
+      <div className="absolute top-0 right-0 w-96 h-96 opacity-10" style={{ background: "radial-gradient(circle at top right, #B8743C, transparent 70%)" }} />
+
+      <div className="max-w-7xl mx-auto px-6 relative">
+        <motion.div variants={fadeUp()} initial="hidden" animate={inView ? "visible" : "hidden"} className="mb-16">
+          <p className="text-[#B8743C] text-sm uppercase tracking-[0.4em] font-bold mb-3">Our Promise</p>
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <h2 className="font-serif text-4xl md:text-5xl font-bold text-[#F5EFE6]">Why Choose<br/><span className="text-[#B8743C]">BEST HOPE</span></h2>
+            <p className="text-[#D9C9A8]/60 max-w-sm text-sm leading-relaxed">Four pillars that separate handcrafted heritage from mass-produced furniture.</p>
+          </div>
+          <div className="w-24 h-0.5 bg-gradient-to-r from-[#B8743C] to-transparent mt-6" />
         </motion.div>
-        <motion.div variants={stagger} initial="hidden" animate={inView ? "visible" : "hidden"} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+        <motion.div variants={stagger} initial="hidden" animate={inView ? "visible" : "hidden"}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+        >
           {items.map((item, i) => (
-            <motion.div key={item.title} variants={fadeUp(i * 0.1)} whileHover={{ y: -6, boxShadow: "0 20px 40px rgba(28,20,16,0.12)" }}
-              className="p-8 rounded-2xl text-center transition-all cursor-default bg-white border border-[#D9C9A8]/40"
+            <motion.div key={item.title} variants={fadeUp(i * 0.1)}
+              whileHover={{ y: -8, scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className={`relative p-7 rounded-3xl overflow-hidden cursor-default bg-gradient-to-br ${item.gradient} group`}
             >
-              <div className="text-4xl mb-5">{item.icon}</div>
-              <h3 className="font-serif font-bold text-lg mb-3 text-[#1C1410]">{item.title}</h3>
-              <p className="text-sm leading-relaxed text-[#1C1410]/60">{item.desc}</p>
+              {/* Large decorative number */}
+              <span className="absolute -top-2 -right-2 font-serif text-[7rem] font-bold leading-none opacity-10 text-white select-none">{item.num}</span>
+              {/* Diagonal accent line */}
+              <div className="absolute top-0 right-0 w-20 h-20 opacity-20">
+                <div className="absolute top-3 right-3 w-16 h-px bg-white rotate-45 origin-right" />
+                <div className="absolute top-5 right-3 w-12 h-px bg-white rotate-45 origin-right" />
+              </div>
+
+              <div className="relative z-10">
+                <div className="text-3xl mb-5 filter drop-shadow-lg">{item.icon}</div>
+                <h3 className="font-serif font-bold text-xl mb-3 text-white leading-tight">{item.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: `${item.light}cc` }}>{item.desc}</p>
+                <div className="mt-6 flex items-center gap-2 text-xs font-semibold tracking-widest uppercase" style={{ color: item.light }}>
+                  <span className="w-6 h-px bg-current" />
+                  <span className="opacity-70">Learn More</span>
+                </div>
+              </div>
             </motion.div>
           ))}
         </motion.div>
@@ -698,30 +754,56 @@ function About() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
   return (
-    <section id="about" ref={ref} className="py-24 bg-white">
-      <div className="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-16">
+    <section id="about" ref={ref} className="py-24 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2a2018 0%, #1C1410 50%, #24180e 100%)" }}>
+      {/* Decorative large serif watermark */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
+        <span className="font-serif text-[20rem] font-bold text-white/[0.02] leading-none whitespace-nowrap">BEST HOPE</span>
+      </div>
+      {/* Warm glow top-right */}
+      <div className="absolute top-0 right-0 w-[40vw] h-[40vw] opacity-10 pointer-events-none" style={{ background: "radial-gradient(circle, #B8743C, transparent 65%)" }} />
+
+      <div className="max-w-7xl mx-auto px-6 relative flex flex-col lg:flex-row items-center gap-16">
         <motion.div variants={fadeUp()} initial="hidden" animate={inView ? "visible" : "hidden"} className="lg:w-1/2 relative">
-          <div className="absolute -top-5 -left-5 w-full h-full border-2 border-[#B8743C]/40 rounded-2xl" />
-          <img src={IMG_TUFTEDBED} alt="Craftsmanship" loading="lazy" className="relative z-10 rounded-2xl shadow-2xl w-full" />
+          {/* Offset decorative border */}
+          <div className="absolute -top-4 -left-4 w-full h-full rounded-3xl border border-[#B8743C]/30" />
+          <div className="absolute -bottom-4 -right-4 w-full h-full rounded-3xl border border-[#6B7A5E]/20" />
+          <img src={IMG_TUFTEDBED} alt="Craftsmanship" loading="lazy" className="relative z-10 rounded-3xl shadow-2xl w-full object-cover" />
+          {/* Floating stat badge */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }} animate={inView ? { opacity: 1, scale: 1 } : {}} transition={{ delay: 0.5, duration: 0.5 }}
+            className="absolute -bottom-6 -right-4 md:-right-8 z-20 bg-[#B8743C] text-white rounded-2xl px-6 py-4 shadow-2xl"
+          >
+            <div className="font-serif text-3xl font-bold">14+</div>
+            <div className="text-xs uppercase tracking-widest text-white/80">Years Crafting</div>
+          </motion.div>
         </motion.div>
+
         <motion.div variants={fadeUp(0.2)} initial="hidden" animate={inView ? "visible" : "hidden"} className="lg:w-1/2">
-          <p className="text-[#B8743C] text-sm uppercase tracking-[0.3em] font-bold mb-4">Our Story</p>
-          <h2 className="font-serif text-4xl md:text-5xl font-bold mb-6 leading-tight text-[#1C1410]">Built on Hope,<br/>Finished by Hand</h2>
-          <p className="mb-5 leading-relaxed text-[#1C1410]/70">
-            BEST HOPE Furniture started as a small Lagos workshop with one promise: every piece leaving our floor should feel like it was made for the home it's going into. That promise hasn't changed.
+          <p className="text-[#B8743C] text-sm uppercase tracking-[0.4em] font-bold mb-4">Our Story</p>
+          <h2 className="font-serif text-4xl md:text-5xl font-bold mb-6 leading-tight text-[#F5EFE6]">Built on Hope,<br/><span className="text-[#B8743C]">Finished by Hand</span></h2>
+          <p className="mb-5 leading-relaxed text-[#D9C9A8]/80">
+            BEST HOPE Furniture was born in Ibadan, Oyo State — one promise at its core: every piece leaving our workshop should feel like it was made for the home it's going into.
           </p>
-          <p className="mb-8 leading-relaxed text-[#1C1410]/70">
-            Today we work with carpenters, upholsterers, and finishers across Nigeria to bring solid, lasting furniture to living rooms, bedrooms, and dining halls nationwide — built to order, never mass-produced.
+          <p className="mb-8 leading-relaxed text-[#D9C9A8]/70">
+            We work with carpenters, upholsterers, and finishers across Nigeria to bring solid, lasting furniture to living rooms, bedrooms, and dining halls nationwide — built to order, never mass-produced.
           </p>
-          <div className="flex gap-8 mb-8">
-            {[["14+", "Years"], ["3.2K+", "Pieces Made"], ["36", "States Served"]].map(([v, l]) => (
+
+          {/* Stats row */}
+          <div className="flex gap-8 mb-8 pb-8 border-b border-[#D9C9A8]/15">
+            {[["3.2K+", "Pieces Made"], ["36", "States Served"], ["100%", "Bespoke"]].map(([v, l]) => (
               <div key={l}>
                 <div className="font-serif text-3xl font-bold text-[#B8743C]">{v}</div>
-                <div className="text-sm text-[#1C1410]/60">{l}</div>
+                <div className="text-xs text-[#D9C9A8]/50 uppercase tracking-wider mt-1">{l}</div>
               </div>
             ))}
           </div>
-          <a href="#contact" className="text-[#B8743C] font-bold border-b-2 border-[#B8743C] pb-1 hover:text-[#1C1410] hover:border-[#1C1410] transition-colors">Get In Touch →</a>
+
+          <a href="#contact"
+            className="inline-flex items-center gap-3 bg-[#B8743C] hover:bg-[#F5EFE6] hover:text-[#1C1410] text-white font-bold px-8 py-4 rounded-full transition-all hover:-translate-y-1 shadow-lg shadow-[#B8743C]/20"
+          >
+            Get In Touch
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+          </a>
         </motion.div>
       </div>
     </section>
@@ -733,22 +815,39 @@ function Testimonials() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
   return (
-    <section ref={ref} className="py-24 overflow-hidden bg-[#F5EFE6]">
-      <div className="max-w-7xl mx-auto px-6">
-        <motion.div variants={fadeUp()} initial="hidden" animate={inView ? "visible" : "hidden"} className="text-center mb-14">
-          <h2 className="font-serif text-4xl md:text-5xl font-bold text-[#1C1410]">What Our Clients Say</h2>
+    <section ref={ref} className="py-24 overflow-hidden relative" style={{ background: "linear-gradient(160deg, #1a1008 0%, #1C1410 60%, #2a1a10 100%)" }}>
+      {/* Large decorative quote mark */}
+      <div className="absolute top-8 left-8 font-serif text-[14rem] leading-none text-[#B8743C]/8 select-none pointer-events-none">"</div>
+      <div className="absolute bottom-8 right-8 font-serif text-[14rem] leading-none text-[#B8743C]/8 select-none pointer-events-none rotate-180">"</div>
+
+      <div className="max-w-7xl mx-auto px-6 relative">
+        <motion.div variants={fadeUp()} initial="hidden" animate={inView ? "visible" : "hidden"} className="text-center mb-16">
+          <p className="text-[#B8743C] text-sm uppercase tracking-[0.4em] font-bold mb-3">Client Stories</p>
+          <h2 className="font-serif text-4xl md:text-5xl font-bold text-[#F5EFE6]">What Our Clients Say</h2>
           <div className="w-20 h-0.5 bg-[#B8743C] mx-auto mt-4" />
         </motion.div>
-        <motion.div variants={stagger} initial="hidden" animate={inView ? "visible" : "hidden"} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+        <motion.div variants={stagger} initial="hidden" animate={inView ? "visible" : "hidden"}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-start"
+        >
           {TESTIMONIALS.map((t, i) => (
-            <motion.div key={t.name} variants={fadeUp(i * 0.1)} whileHover={{ y: -4 }}
-              className="p-7 rounded-2xl shadow-md hover:shadow-xl transition-all bg-white border border-[#D9C9A8]/40"
+            <motion.div key={t.name} variants={fadeUp(i * 0.1)}
+              whileHover={{ y: -6, borderColor: "#B8743C" }}
+              className={`relative p-7 rounded-3xl border transition-all cursor-default ${
+                i % 2 === 0
+                  ? "bg-[#F5EFE6] border-[#D9C9A8]/0 lg:mt-8"
+                  : "bg-[#241a10] border-[#B8743C]/25"
+              }`}
             >
+              {/* Opening quote */}
+              <span className={`absolute top-4 right-5 font-serif text-5xl leading-none ${i % 2 === 0 ? "text-[#B8743C]/20" : "text-[#B8743C]/30"}`}>"</span>
+
               <Stars count={t.stars} />
-              <p className="mt-4 mb-6 text-sm leading-relaxed italic text-[#1C1410]/70">"{t.text}"</p>
-              <div>
-                <div className="font-bold text-sm text-[#1C1410]">{t.name}</div>
-                <div className="text-[#B8743C] text-xs">{t.role}</div>
+              <p className={`mt-4 mb-6 text-sm leading-relaxed ${i % 2 === 0 ? "text-[#1C1410]/75 italic" : "text-[#D9C9A8]/80 italic"}`}>"{t.text}"</p>
+
+              <div className={`pt-4 border-t ${i % 2 === 0 ? "border-[#D9C9A8]/40" : "border-[#D9C9A8]/15"}`}>
+                <div className={`font-bold text-sm ${i % 2 === 0 ? "text-[#1C1410]" : "text-[#F5EFE6]"}`}>{t.name}</div>
+                <div className="text-[#B8743C] text-xs mt-0.5">{t.role}</div>
               </div>
             </motion.div>
           ))}
@@ -763,36 +862,61 @@ function Contact() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
   return (
-    <section id="contact" ref={ref} className="py-24 bg-white">
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12">
+    <section id="contact" ref={ref} className="py-24 relative overflow-hidden bg-[#F5EFE6]">
+      {/* Decorative background blobs */}
+      <div className="absolute top-0 left-0 w-96 h-96 opacity-20 pointer-events-none" style={{ background: "radial-gradient(circle, #B8743C, transparent 70%)" }} />
+      <div className="absolute bottom-0 right-0 w-80 h-80 opacity-10 pointer-events-none" style={{ background: "radial-gradient(circle, #6B7A5E, transparent 70%)" }} />
+
+      <div className="max-w-7xl mx-auto px-6 relative grid grid-cols-1 lg:grid-cols-2 gap-12">
         <motion.div variants={fadeUp()} initial="hidden" animate={inView ? "visible" : "hidden"}>
           <p className="text-[#B8743C] text-sm uppercase tracking-[0.3em] font-bold mb-3">Contact Us</p>
           <h2 className="font-serif text-4xl font-bold mb-5 text-[#1C1410]">Visit or Reach Out</h2>
-          <p className="mb-8 leading-relaxed text-[#1C1410]/70">Questions about a piece, custom sizing, or delivery? Message us directly on WhatsApp for the fastest response.</p>
-          <div className="space-y-5">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 bg-[#1C1410] text-[#F5EFE6] rounded-full flex items-center justify-center text-lg">📍</div>
-              <span className="text-[#1C1410]/80">Lagos, Nigeria — Showroom by appointment</span>
+          <p className="mb-8 leading-relaxed text-[#1C1410]/70">Based in Ibadan, Oyo State. Questions about a piece, custom sizing, or delivery? Message us directly on WhatsApp for the fastest response.</p>
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-[#D9C9A8]/40">
+              <div className="w-11 h-11 bg-[#1C1410] text-[#B8743C] rounded-xl flex items-center justify-center text-lg shrink-0">📍</div>
+              <div>
+                <div className="text-xs uppercase tracking-widest text-[#1C1410]/40 mb-0.5">Location</div>
+                <span className="text-[#1C1410]/80 font-medium">Ibadan, Oyo State, Nigeria</span>
+              </div>
             </div>
-            <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noreferrer" className="flex items-center gap-4 group">
-              <div className="w-11 h-11 bg-[#6B7A5E] text-white rounded-full flex items-center justify-center text-lg group-hover:bg-[#1C1410] transition-colors">📞</div>
-              <span className="text-[#1C1410]/80 group-hover:text-[#B8743C] transition-colors">0813 299 6257 (WhatsApp)</span>
+            <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noreferrer"
+              className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-[#D9C9A8]/40 hover:border-[#6B7A5E]/60 transition-colors group"
+            >
+              <div className="w-11 h-11 bg-[#6B7A5E] text-white rounded-xl flex items-center justify-center text-lg shrink-0 group-hover:bg-[#1C1410] transition-colors">📞</div>
+              <div>
+                <div className="text-xs uppercase tracking-widest text-[#1C1410]/40 mb-0.5">WhatsApp</div>
+                <span className="text-[#1C1410]/80 font-medium group-hover:text-[#B8743C] transition-colors">0813 299 6257</span>
+              </div>
             </a>
-            <a href={`mailto:${ADMIN_EMAIL}`} className="flex items-center gap-4 group">
-              <div className="w-11 h-11 bg-[#1C1410] text-[#F5EFE6] rounded-full flex items-center justify-center text-lg group-hover:bg-[#B8743C] transition-colors">✉️</div>
-              <span className="text-[#1C1410]/80 group-hover:text-[#B8743C] transition-colors">{ADMIN_EMAIL}</span>
+            <a href={`mailto:${ADMIN_EMAIL}`}
+              className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-[#D9C9A8]/40 hover:border-[#B8743C]/40 transition-colors group"
+            >
+              <div className="w-11 h-11 bg-[#B8743C] text-white rounded-xl flex items-center justify-center text-lg shrink-0 group-hover:bg-[#1C1410] transition-colors">✉️</div>
+              <div>
+                <div className="text-xs uppercase tracking-widest text-[#1C1410]/40 mb-0.5">Email</div>
+                <span className="text-[#1C1410]/80 font-medium group-hover:text-[#B8743C] transition-colors">{ADMIN_EMAIL}</span>
+              </div>
             </a>
           </div>
         </motion.div>
 
         <motion.div variants={fadeUp(0.2)} initial="hidden" animate={inView ? "visible" : "hidden"}>
-          <div className="p-8 rounded-2xl shadow-xl bg-[#F5EFE6] border border-[#D9C9A8]/40 h-full flex flex-col items-center justify-center text-center">
-            <div className="text-5xl mb-5">💬</div>
-            <h3 className="font-serif text-2xl font-bold mb-3 text-[#1C1410]">Chat With Us Directly</h3>
-            <p className="text-[#1C1410]/60 mb-7 max-w-sm">Skip the form — tell us what you're looking for on WhatsApp and we'll respond personally, usually within the hour.</p>
-            <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noreferrer"
-              className="bg-[#6B7A5E] hover:bg-[#1C1410] text-white font-bold px-10 py-4 rounded-full transition-colors flex items-center gap-2"
-            ><i className="fab fa-whatsapp"/> Message Us on WhatsApp</a>
+          <div className="relative p-8 rounded-3xl overflow-hidden h-full flex flex-col items-center justify-center text-center"
+            style={{ background: "linear-gradient(135deg, #1C1410 0%, #2a2018 100%)" }}
+          >
+            {/* Background pattern */}
+            <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "repeating-linear-gradient(45deg, #D9C9A8 0, #D9C9A8 1px, transparent 0, transparent 50%)", backgroundSize: "12px 12px" }} />
+            <div className="relative z-10">
+              <div className="w-20 h-20 bg-[#6B7A5E]/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i className="fab fa-whatsapp text-4xl text-[#6B7A5E]" />
+              </div>
+              <h3 className="font-serif text-2xl font-bold mb-3 text-[#F5EFE6]">Chat With Us Directly</h3>
+              <p className="text-[#D9C9A8]/60 mb-7 max-w-sm text-sm leading-relaxed">Skip the form — tell us what you're looking for on WhatsApp and we'll respond personally, usually within the hour.</p>
+              <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-2 bg-[#6B7A5E] hover:bg-[#B8743C] text-white font-bold px-8 py-4 rounded-full transition-all hover:-translate-y-1 shadow-lg"
+              ><i className="fab fa-whatsapp"/> Message on WhatsApp</a>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -1321,4 +1445,4 @@ export default function App() {
       </div>
     </CartCtx.Provider>
   );
-}``
+}
