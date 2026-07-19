@@ -611,13 +611,13 @@ function ProductCard({ product, onQuickView }) {
           <Stars count={product.rating} />
           <span className="text-xs text-gray-400">({product.reviews})</span>
         </div>
-        <div className="mt-auto flex items-center justify-between gap-2">
+        <div className="mt-auto flex flex-col gap-2">
           <div>
             <span className="text-lg font-bold text-[#1C1410]">{fmtNaira(product.price)}</span>
             {product.oldPrice && <span className="text-xs text-gray-400 line-through ml-1.5 block">{fmtNaira(product.oldPrice)}</span>}
           </div>
           <motion.button whileTap={{ scale: 0.95 }} onClick={() => addToCart(product)}
-            className={`text-xs font-bold px-4 py-2 rounded-full transition-colors shrink-0 ${inCart ? "bg-[#1C1410] text-white" : "bg-[#1C1410]/10 text-[#1C1410] hover:bg-[#1C1410] hover:text-white"}`}
+            className={`text-xs font-bold px-4 py-2 rounded-full transition-colors w-full text-center ${inCart ? "bg-[#1C1410] text-white" : "bg-[#1C1410]/10 text-[#1C1410] hover:bg-[#1C1410] hover:text-white"}`}
           >{inCart ? "In Cart" : "Add to Cart"}</motion.button>
         </div>
       </div>
