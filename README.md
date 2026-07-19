@@ -32,7 +32,7 @@ A modern, single-page e-commerce storefront for BEST HOPE Furniture — built as
 ### Installation
 
 ```bash
-git clone https://github.com/<your-username>/best-hope-furniture.git
+git clone https://github.com/<Oreoluwa211>/best-hope-furniture.git
 cd best-hope-furniture
 npm install
 ```
